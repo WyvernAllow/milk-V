@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-discord_bot_token = os.getenv('DISCORD_BOT_TOKEN');
+discord_bot_token = os.getenv('DISCORD_BOT_TOKEN')
 
 bot = commands.Bot()
 
