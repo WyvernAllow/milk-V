@@ -1,4 +1,3 @@
 python-dotenv
 nextcord
 openai
-python-statemachine
