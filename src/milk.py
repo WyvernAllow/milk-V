@@ -13,7 +13,6 @@ class MilkVState(Enum):
     GAMING = auto()
     CHECKING_MESSAGES = auto()
 
-# Sleep for a random amount of minutes in range [a, b], including both end points.
 async def randsleep(a: int, b: int):
     sleep_time_min = random.randint(a, b)
     print(f'Sleeping for {sleep_time_min} minutes')
