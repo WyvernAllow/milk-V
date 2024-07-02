@@ -38,14 +38,7 @@ class MilkV(commands.Bot):
             MilkVState.CHECKING_MESSAGES: timedelta(0),
         }
 
-    def get_total_time_online(self):
-        total_time = timedelta(0)
-
-        for state, time in self.total_time_per_state.items():
-            if state != MilkVState.OFFLINE:
-                total_time += time
-
-        return total_time
+        self.total_time_online = timedelta(0)
 
     async def change_state(self, new_state):
         now = datetime.now()
@@ -56,6 +49,9 @@ class MilkV(commands.Bot):
         duration = now - self.last_state_change
         self.total_time_per_state[old_state] += duration
         self.last_state_change = now
+
+        if self.state != MilkVState.OFFLINE:
+            self.total_time_online += duration
 
         transition = (old_state, new_state)
         if transition in self.transitions:
