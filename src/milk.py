@@ -1,89 +1,94 @@
 import asyncio
 import random
+from enum import Enum, auto
+from datetime import datetime, timedelta
 
 import nextcord
-from nextcord.ext import commands, tasks
-
-from enum import Enum, auto
+from nextcord.ext import commands
 
 class MilkVState(Enum):
     OFFLINE = auto()
-    ONLINE = auto()
-    READING = auto()
+    IDLE = auto()
     WORKING = auto()
     GAMING = auto()
-    TYPING = auto()
+    CHECKING_MESSAGES = auto()
+
+def select_random_state(states: list[MilkVState], weights: list[float]) -> MilkVState:
+    assert len(states) == len(weights)
+    return random.choices(population=states, weights=weights, k=1)[0]
 
 class MilkV(commands.Bot):
     def __init__(self):
         super().__init__(intents=nextcord.Intents.all(), status=nextcord.Status.offline)
 
         self.state = MilkVState.OFFLINE
-        
+
         self.transitions = {
-            (MilkVState.OFFLINE, MilkVState.ONLINE):  self.on_enter_online,
-            (MilkVState.ONLINE,  MilkVState.OFFLINE): self.on_enter_offline,
-            (MilkVState.ONLINE,  MilkVState.READING): self.on_enter_reading,
-            (MilkVState.READING, MilkVState.WORKING): self.on_enter_working,
-            (MilkVState.WORKING, MilkVState.ONLINE):  self.on_exit_working,
-            (MilkVState.READING, MilkVState.GAMING):  self.on_enter_gaming,
-            (MilkVState.GAMING,  MilkVState.ONLINE):  self.on_exit_gaming,
-            (MilkVState.READING, MilkVState.TYPING):  self.on_enter_typing,
-            (MilkVState.TYPING,  MilkVState.READING): self.on_exit_typing
+            (MilkVState.OFFLINE, MilkVState.IDLE):  self.on_enter_idle,
+            (MilkVState.IDLE,  MilkVState.OFFLINE): self.on_enter_offline,
         }
 
-        self.on_update.start()
+        self.last_state_change = datetime.now()
+
+        self.total_time_per_state = {
+            MilkVState.OFFLINE: timedelta(0),
+            MilkVState.IDLE: timedelta(0),
+            MilkVState.WORKING: timedelta(0),
+            MilkVState.GAMING: timedelta(0),
+            MilkVState.CHECKING_MESSAGES: timedelta(0),
+        }
+
+    def get_total_time_online(self):
+        total_time = timedelta(0)
+
+        for state, time in self.total_time_per_state.items():
+            if state != MilkVState.OFFLINE:
+                total_time += time
+
+        return total_time
 
     async def change_state(self, new_state):
+        now = datetime.now()
+
         old_state = self.state
         self.state = new_state
+
+        duration = now - self.last_state_change
+        self.total_time_per_state[old_state] += duration
+        self.last_state_change = now
 
         transition = (old_state, new_state)
         if transition in self.transitions:
             await self.transitions[transition]()
 
-    async def on_enter_online(self):
-        print('going online')
+    async def on_enter_offline(self):
+        print('Going offline')
+        await self.change_presence(status=nextcord.Status.offline)
+
+    async def on_enter_idle(self):
+        print('Going idle...')
         await self.change_presence(status=nextcord.Status.online)
+
+        sleep_time = random.randint(5, 10)
+        print(f'Idling for {sleep_time} minutes')
+        await asyncio.sleep(sleep_time * 60)
+
+        next_state = select_random_state(
+            [MilkVState.OFFLINE, MilkVState.IDLE, MilkVState.GAMING, MilkVState.WORKING, MilkVState.CHECKING_MESSAGES],
+            [2, 2, 4, 4, 6]
+        )
+
+        await self.change_state(next_state)
 
     async def on_enter_offline(self):
         print('going offline')
         await self.change_presence(status=nextcord.Status.offline)
 
-    async def on_enter_reading(self):
-        print('starting to read messages')
+    async def on_message(self, message: nextcord.Message):
+        print(f'Content: {message.content}')
 
-    async def on_enter_working(self):
-        print('starting to work')
+    async def on_ready(self):
+        print(f'Logged in as {self.user} (ID: {self.user.id})')
+        print('----------------------------------------------------')
 
-    async def on_exit_working(self):
-        print('stopping work')
-
-    async def on_enter_gaming(self):
-        print('starting to game')
-
-    async def on_exit_gaming(self):
-        print('stopping gaming')
-
-    async def on_enter_typing(self):
-        print('starting to type')
-
-    async def on_exit_typing(self):
-        print('stopping typing')
-
-    @tasks.loop(minutes=1)
-    async def on_update(self):
-        print('updating...')
-
-        if random.random() < 0.5:
-            await self.change_state(MilkVState.ONLINE)
-        else:
-            await self.change_state(MilkVState.OFFLINE)
-
-    async def on_start(self):
-        print('starting...')
-
-    @on_update.before_loop
-    async def before_update_loop(self):
-        await self.wait_until_ready()
-        await self.on_start()
+        await self.change_state(MilkVState.IDLE)
