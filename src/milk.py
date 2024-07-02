@@ -13,6 +13,12 @@ class MilkVState(Enum):
     GAMING = auto()
     CHECKING_MESSAGES = auto()
 
+# Sleep for a random amount of minutes in range [a, b], including both end points.
+async def randsleep(a: int, b: int):
+    sleep_time_min = random.randint(a, b)
+    print(f'Sleeping for {sleep_time_min} minutes')
+    await asyncio.sleep(sleep_time_min * 60)
+
 def select_random_state(states: list[MilkVState], weights: list[float]) -> MilkVState:
     assert len(states) == len(weights)
     return random.choices(population=states, weights=weights, k=1)[0]
@@ -58,16 +64,16 @@ class MilkV(commands.Bot):
             await self.transitions[transition]()
 
     async def on_enter_offline(self):
-        print('Going offline')
+        print('Going offline...')
         await self.change_presence(status=nextcord.Status.offline)
+
+        await randsleep(10, 20)
 
     async def on_enter_idle(self):
         print('Going idle...')
         await self.change_presence(status=nextcord.Status.online)
 
-        sleep_time = random.randint(5, 10)
-        print(f'Idling for {sleep_time} minutes')
-        await asyncio.sleep(sleep_time * 60)
+        await randsleep(5, 10)
 
         next_state = select_random_state(
             [MilkVState.OFFLINE, MilkVState.IDLE, MilkVState.GAMING, MilkVState.WORKING, MilkVState.CHECKING_MESSAGES],
@@ -75,10 +81,6 @@ class MilkV(commands.Bot):
         )
 
         await self.change_state(next_state)
-
-    async def on_enter_offline(self):
-        print('going offline')
-        await self.change_presence(status=nextcord.Status.offline)
 
     async def on_message(self, message: nextcord.Message):
         print(f'Content: {message.content}')
